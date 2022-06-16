@@ -2,6 +2,7 @@ package ckret
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 
@@ -35,7 +36,7 @@ func GetInstance() *secretcache.Cache {
 func GetCkret() (data map[string]any) {
 	var secretName string = ""
 	switch strings.ToLower(os.Getenv("ENVIRONMENT")) {
-	case "prod", "prduction":
+	case "prod", "production":
 		secretName = "ckret/prod"
 	case "stage", "staging":
 		secretName = "ckret/stage"
@@ -45,6 +46,7 @@ func GetCkret() (data map[string]any) {
 		secretName = "ckret/local"
 	}
 	s, err := ckretCache.GetSecretString(secretName)
+	fmt.Println(fmt.Sprintf(`{"selected_ckret":"%s"}`, secretName))
 	if err != nil {
 		panic("can not read ckret from secret manager")
 	}
