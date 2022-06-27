@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -18,6 +20,7 @@ func Init(config *aws.Config) error {
 	c, err := secretcache.New(func(cache *secretcache.Cache) {
 		sess, _ := session.NewSession(config)
 		cache.Client = secretsmanager.New(sess)
+		cache.CacheItemTTL = int64(time.Minute) * 10 // 10 minute
 	})
 	if err != nil {
 		return err
@@ -33,6 +36,8 @@ func GetInstance() *secretcache.Cache {
 // This will look for secret in aws secret manager based on environment variable
 // warning: function is very specific to perticular use case.
 // aws secret must be valid JSON
+var once sync.Once
+
 func GetCkret() (data map[string]any) {
 	var secretName string = ""
 	switch strings.ToLower(os.Getenv("ENVIRONMENT")) {
@@ -46,10 +51,12 @@ func GetCkret() (data map[string]any) {
 		secretName = "ckret/local"
 	}
 	s, err := ckretCache.GetSecretString(secretName)
-	fmt.Println(fmt.Sprintf(`{"selected_ckret":"%s"}`, secretName))
 	if err != nil {
 		panic("can not read ckret from secret manager")
 	}
+	once.Do(func() {
+		fmt.Println(fmt.Sprintf(`{"selected_ckret":"%s"}`, secretName))
+	})
 	json.Unmarshal([]byte(s), &data)
 	return
 }
