@@ -47,6 +47,8 @@ func GetCkret() (data map[string]any) {
 		secretName = "ckret/stage"
 	case "dev", "development":
 		secretName = "ckret/dev"
+	case "sandbox":
+		secretName = "ckret/sandbox"
 	default:
 		secretName = "ckret/local"
 	}
@@ -55,8 +57,11 @@ func GetCkret() (data map[string]any) {
 		panic("can not read ckret from secret manager")
 	}
 	once.Do(func() {
-		fmt.Println(fmt.Sprintf(`{"selected_ckret":"%s"}`, secretName))
+		fmt.Fprintln(os.Stderr, fmt.Sprintf(`{"selected_ckret":"%s"}`, secretName))
 	})
-	json.Unmarshal([]byte(s), &data)
+	err = json.Unmarshal([]byte(s), &data)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, fmt.Sprintf(`{"ckret_json_error":"%s"}`, err.Error()))
+	}
 	return
 }
