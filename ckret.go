@@ -2,10 +2,6 @@ package ckret
 
 import (
 	"encoding/json"
-	"fmt"
-	"os"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -14,54 +10,52 @@ import (
 	"github.com/aws/aws-secretsmanager-caching-go/secretcache"
 )
 
-var ckretCache *secretcache.Cache
+type instance struct {
+	ckretCache *secretcache.Cache
+	name       *string
+}
 
-func Init(config *aws.Config) error {
+// create new ckret instance using name (secretId) and aws config.
+// panic on error
+func New(config *aws.Config, name string) *instance {
 	c, err := secretcache.New(func(cache *secretcache.Cache) {
 		sess, _ := session.NewSession(config)
 		cache.Client = secretsmanager.New(sess)
 		cache.CacheItemTTL = int64(time.Minute) * 10 // 10 minute
 	})
 	if err != nil {
-		return err
+		panic("failed to initialize aws cache")
 	}
-	ckretCache = c
-	return nil
+	return &instance{
+		ckretCache: c,
+		name:       &name,
+	}
 }
 
-func GetInstance() *secretcache.Cache {
-	return ckretCache
-}
+// get secretId (name) of this ckret instance
+func (i instance) Name() *string { return i.name }
 
-// This will look for secret in aws secret manager based on environment variable
-// warning: function is very specific to perticular use case.
-// aws secret must be valid JSON
-var once sync.Once
-
-func GetCkret() (data map[string]any) {
-	var secretName string = ""
-	switch strings.ToLower(os.Getenv("ENVIRONMENT")) {
-	case "prod", "production":
-		secretName = "ckret/prod"
-	case "stage", "staging":
-		secretName = "ckret/stage"
-	case "dev", "development":
-		secretName = "ckret/dev"
-	case "sandbox":
-		secretName = "ckret/sandbox"
-	default:
-		secretName = "ckret/local"
-	}
-	s, err := ckretCache.GetSecretString(secretName)
+// get value of this ckret instance
+func (i instance) GetCkret() map[string]any {
+	s, err := i.ckretCache.GetSecretString(*i.name)
 	if err != nil {
-		panic("can not read ckret from secret manager")
+		panic("failed to GetSecretString from cache")
 	}
-	once.Do(func() {
-		fmt.Fprintln(os.Stderr, fmt.Sprintf(`{"selected_ckret":"%s"}`, secretName))
-	})
+	var data map[string]any
 	err = json.Unmarshal([]byte(s), &data)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, fmt.Sprintf(`{"ckret_json_error":"%s"}`, err.Error()))
+		panic("failed to unmarshal secret")
 	}
-	return
+	return data
 }
+
+var (
+	// default ckret instance
+	defaultInstance *instance = nil
+	// initialize default ckret instance
+	Init = func(config *aws.Config, name string) { defaultInstance = New(config, name) }
+	// get value of default ckret instance
+	GetCkret = func() map[string]any { return defaultInstance.GetCkret() }
+	// get secretId (name) for default ckret instance
+	Name = func() *string { return defaultInstance.Name() }
+)
