@@ -1,6 +1,6 @@
 # ckret
 
-## ckret can be used in two ways.
+* **ckret** can be used in two ways.
 
 ### Using default instance
 ```go
@@ -18,7 +18,7 @@ ckret.Name() // --> ckret/mango i.e. secretId or name of the secret
 
 ### Warning & Suggestions
 1. Avoid using default instance.
-2. While using default instance make sure it has been initialized.
-3. Don't called Init() more than once.
+2. While using default instance make sure, it has been **initialized**.
+3. Do not call *Init()* more than once.
 
 
